@@ -1,0 +1,82 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata: 
+  name: devenv-tf
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: devenv-storage
+  labels:
+    name: devenv-storage
+spec:
+  nfs:
+    path: /mnt/DevEnv
+    server: 192.168.0.20
+  accessModes: ["ReadWriteMany","ReadWriteOnce"]
+  capacity:
+    storage: 100Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: devenv-storage
+  namespace: devenv-tf
+spec:
+  accessModes: ["ReadWriteMany"]      
+  resources:
+    requests:
+      storage: 100Gi         
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devenv-tensorflow
+  namespace: devenv-tf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devenv-tensorflow
+  template: 
+    metadata: 
+      labels:
+        app: devenv-tensorflow
+    spec:
+      volumes:
+        - name: devenv-tensorflow-storage
+          persistentVolumeClaim:
+            claimName: devenv-storage
+      containers:
+        - name: devenv-tensorflow
+          image: m686li/adduser_tensorflow_admin
+          env:
+          - name: USERNAME
+            value: "XXXXXX"
+          - name: PASSWORD
+            value: "XXXXXX"
+          ports:
+            - containerPort: 22
+          volumeMounts:
+            - name: devenv-tensorflow-storage
+              mountPath: /Data
+      nodeSelector:
+        rtx: "on"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devenv-tensorflow
+  namespace: devenv-tf
+spec:
+  selector: 
+    app: devenv-tensorflow
+  ports: 
+    - port: 22
+      protocol: TCP
+      targetPort: 22
+  type: ClusterIP
